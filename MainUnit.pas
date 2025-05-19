@@ -66,7 +66,10 @@ type
   private
     FWorkThread: TWorkThread;
     FConversionSettings: TConversionSettings;
+    FFileTypesArr: TStringDynArray;
     function IncludeFolderPathDelimiter(const APath: string): string;
+    function AllowedFileTypes(const AFileType: string): Boolean;
+    function GetFilesFromPath(const APath: string): TStringDynArray;
     procedure SetDestinationPath(const APath: string);
     procedure ProgressUpdate(var AMsg: TMessage); message WM_PROGRESS;
     procedure ProcessComplete(var AMsg: TMessage); message WM_COMPLETE;
@@ -91,14 +94,16 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, IOUtils, ShellAPI, DateUtils, Math;
+  IniFiles, IOUtils, ShellAPI, DateUtils, Math, StrUtils, System.Masks;
 
 const
   SETTINGS_FILENAME = 'Settings.ini';
   TMP_FOLDER = 'tmp';
+  SUPPORTED_FILE_TYPES = 'mp4;mkv';
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  FFileTypesArr := SplitString(SUPPORTED_FILE_TYPES, ';');
   btnStart.Enabled := False;
   DisableFiles;
   DisableFolders;
@@ -129,7 +134,7 @@ begin
 
   if Length(FConversionSettings.Files) = 0 then
   begin
-    ShowMessage('There is no mp4 file selected.');
+    ShowMessage('There is no mp4 or mkv file selected.');
     Exit;
   end;
 
@@ -154,7 +159,7 @@ begin
 
   if Length(FConversionSettings.Files) = 0 then
   begin
-    ShowMessage('There is no mp4 files in this folder.');
+    ShowMessage('There are no mp4 or mkv files in this folder.');
     Exit;
   end;
 
@@ -183,8 +188,24 @@ end;
 
 procedure TMainForm.GetFilesFromFolder;
 begin
-  FConversionSettings.Files := TDirectory.GetFiles(FConversionSettings.SelectedFolderPath, '*.mp4');
+  FConversionSettings.Files := GetFilesFromPath(FConversionSettings.SelectedFolderPath);
   lblFileCount.Caption := Length(FConversionSettings.Files).ToString;
+end;
+
+function TMainForm.GetFilesFromPath(const APath: string): TStringDynArray;
+var
+  Predicate: TDirectory.TFilterPredicate;
+begin
+  Predicate :=
+    function(const Path: string; const SearchRec: TSearchRec): Boolean
+    begin
+      for var LType in FFileTypesArr do
+        if MatchesMask(SearchRec.Name, '*.' + LType) then
+          Exit(True);
+
+      Result := False;
+    end;
+  Result := TDirectory.GetFiles(APath, Predicate);
 end;
 
 function TMainForm.IncludeFolderPathDelimiter(const APath: string): string;
@@ -193,6 +214,15 @@ begin
     Result := APath
   else
     Result := APath + '\';
+end;
+
+function TMainForm.AllowedFileTypes(const AFileType: string): Boolean;
+begin
+  for var LType in FFileTypesArr do
+    if MatchesMask(AFileType, '*.' + LType) then
+      Exit(True);
+
+  Result := False;
 end;
 
 procedure TMainForm.btnOutputFolderClick(Sender: TObject);
@@ -230,6 +260,12 @@ procedure TMainForm.btnSelectFilesClick(Sender: TObject);
 begin
   var LFd := TFileOpenDialog.Create(nil);
   try
+    for var LType in FFileTypesArr do
+    begin
+      var LItem := LFd.FileTypes.Add;
+      LItem.DisplayName := Format('%s file', [LType]);
+      Litem.FileMask := '*.' + LType;
+    end;
     LFd.Options := [fdoAllowMultiSelect];
 
     if LFd.Execute then
@@ -400,7 +436,7 @@ begin
           if DragQueryFile(AMsg.Drop, i, LFileName, MAX_PATH) > 0 then
           begin
             var LPath: string := LFileName;
-            if ExtractFileExt(LPath).ToUpper = '.MP4' then
+            if AllowedFileTypes(ExtractFileExt(LPath)) then
               LList.Add(LPath)
             else if (LCount = 1) and TDirectory.Exists(LPath) then
             begin

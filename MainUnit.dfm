@@ -96,7 +96,6 @@ object MainForm: TMainForm
     Caption = '...'
     TabOrder = 1
     OnClick = btnSelectFolderClick
-    ExplicitLeft = 518
   end
   object btnStart: TButton
     Left = 452
@@ -107,8 +106,6 @@ object MainForm: TMainForm
     Caption = '&Start'
     TabOrder = 7
     OnClick = btnStartClick
-    ExplicitLeft = 448
-    ExplicitTop = 188
   end
   object cbSetFileDate: TCheckBox
     Left = 13
@@ -119,7 +116,6 @@ object MainForm: TMainForm
     Caption = 'Set file name date'
     TabOrder = 3
     OnClick = cbSetFileDateClick
-    ExplicitTop = 167
   end
   object dtpFileDate: TDateTimePicker
     Left = 13
@@ -131,7 +127,6 @@ object MainForm: TMainForm
     Time = 0.885134097225091000
     Kind = dtkDateTime
     TabOrder = 6
-    ExplicitTop = 190
   end
   object pbProgress: TProgressBar
     Left = 13
@@ -140,7 +135,6 @@ object MainForm: TMainForm
     Height = 17
     Anchors = [akLeft, akTop, akRight]
     TabOrder = 2
-    ExplicitWidth = 530
   end
   object btnSelectFiles: TButton
     Left = 522
@@ -151,7 +145,6 @@ object MainForm: TMainForm
     Caption = '...'
     TabOrder = 0
     OnClick = btnSelectFilesClick
-    ExplicitLeft = 518
   end
   object cbSetOutputFolder: TCheckBox
     Left = 200
@@ -162,7 +155,6 @@ object MainForm: TMainForm
     Caption = 'Output folder'
     TabOrder = 4
     OnClick = cbSetOutputFolderClick
-    ExplicitTop = 167
   end
   object btnOutputFolder: TButton
     Left = 412
@@ -173,7 +165,5 @@ object MainForm: TMainForm
     Caption = '...'
     TabOrder = 5
     OnClick = btnOutputFolderClick
-    ExplicitLeft = 408
-    ExplicitTop = 188
   end
 end
