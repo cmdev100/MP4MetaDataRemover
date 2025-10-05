@@ -70,6 +70,7 @@ type
     function IncludeFolderPathDelimiter(const APath: string): string;
     function AllowedFileTypes(const AFileType: string): Boolean;
     function GetFilesFromPath(const APath: string): TStringDynArray;
+    function CleanTimeFromSeconds(ADate: TDateTime): TDateTime;
     procedure SetDestinationPath(const APath: string);
     procedure ProgressUpdate(var AMsg: TMessage); message WM_PROGRESS;
     procedure ProcessComplete(var AMsg: TMessage); message WM_COMPLETE;
@@ -94,12 +95,21 @@ implementation
 
 {$R *.dfm}
 uses
-  IniFiles, IOUtils, ShellAPI, DateUtils, Math, StrUtils, System.Masks;
+  JSON.Serializers, IOUtils, ShellAPI,
+  DateUtils, Math, StrUtils, Masks;
 
 const
-  SETTINGS_FILENAME = 'Settings.ini';
+  SETTINGS_FILENAME = 'Settings.json';
   TMP_FOLDER = 'tmp';
   SUPPORTED_FILE_TYPES = 'mp4;mkv';
+
+type
+  TSettings = record
+    FileDate: TDateTime;
+    SetFileDate: Boolean;
+    SetOutputFolder: Boolean;
+    OutputFolder: string;
+  end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
@@ -123,6 +133,7 @@ procedure TMainForm.FormShow(Sender: TObject);
 begin
   SendMessage(Handle, WM_PROGRESS, 0, 0);
   LoadSettings;
+  cbSetOutputFolderClick(nil);
 end;
 
 procedure TMainForm.EnableFiles;
@@ -331,29 +342,42 @@ end;
 
 procedure TMainForm.LoadSettings;
 begin
-  var LIniFile := TMemIniFile.Create(SETTINGS_FILENAME);
-  try
-    cbSetFileDate.Checked := LIniFile.ReadBool('Settings', 'SetFileDate', False);
-    dtpFileDate.DateTime := LIniFile.ReadDateTime('Settings', 'FileDate', Now);
-    cbSetOutputFolder.Checked := LIniFile.ReadBool('Settings', 'SetOutputFolder', False);
-    SetDestinationPath(LIniFile.ReadString('Settings', 'OutputFolder', ''));
-    cbSetOutputFolderClick(nil);
-  finally
-    LIniFile.Free;
+  var LSettings := Default(TSettings);
+
+  if TFile.Exists(SETTINGS_FILENAME) then
+  begin
+    var LSerializer := TJsonSerializer.Create;
+    try
+      var LStr := TFile.ReadAllText(SETTINGS_FILENAME, TEncoding.UTF8);
+       LSettings := LSerializer.DeSerialize<TSettings>(LStr);
+    finally
+      LSerializer.Free;
+    end;
   end;
+
+  // Update GUI.
+  cbSetFileDate.Checked := LSettings.SetFileDate;
+  dtpFileDate.DateTime := CleanTimeFromSeconds(LSettings.FileDate);
+  cbSetOutputFolder.Checked := LSettings.SetOutputFolder;
+  SetDestinationPath(LSettings.OutputFolder);
 end;
 
 procedure TMainForm.SaveSettings;
 begin
-  var LIniFile := TMemIniFile.Create(SETTINGS_FILENAME);
+  var LSettings: TSettings;
+
+  // Read from GUI.
+  LSettings.SetFileDate := cbSetFileDate.Checked;
+  LSettings.FileDate := CleanTimeFromSeconds(dtpFileDate.DateTime);
+  LSettings.SetOutputFolder := cbSetOutputFolder.Checked;
+  LSettings.OutputFolder := FConversionSettings.DestinationPath;
+
+  var LSerializer := TJsonSerializer.Create;
   try
-    LIniFile.WriteBool('Settings', 'SetFileDate', cbSetFileDate.Checked);
-    LIniFile.WriteDateTime('Settings', 'FileDate', dtpFileDate.DateTime);
-    LIniFile.WriteBool('Settings', 'SetOutputFolder', cbSetOutputFolder.Checked);
-    LIniFile.WriteString('Settings', 'OutputFolder', FConversionSettings.DestinationPath);
-    LIniFile.UpdateFile;
+    var LStr := LSerializer.Serialize<TSettings>(LSettings);
+    TFile.WriteAllText(SETTINGS_FILENAME, LStr, TEncoding.UTF8);
   finally
-    LIniFile.Free;
+    LSerializer.Free;
   end;
 end;
 
@@ -469,6 +493,12 @@ begin
     MessageBeep(MB_ICONERROR);
     AMsg.Result := 0;
   end;
+end;
+
+function TMainForm.CleanTimeFromSeconds(ADate: TDateTime): TDateTime;
+begin
+  Result := RecodeDateTime(ADate, YearOf(ADate), MonthOf(ADate), DayOf(ADate),
+    HourOf(ADate), MinuteOf(ADate), 0, 0);
 end;
 
 { TWorkThread }
