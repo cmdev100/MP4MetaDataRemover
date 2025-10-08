@@ -343,6 +343,7 @@ end;
 procedure TMainForm.LoadSettings;
 begin
   var LSettings := Default(TSettings);
+  LSettings.FileDate := CleanTimeFromSeconds(Now);
 
   if TFile.Exists(SETTINGS_FILENAME) then
   begin
